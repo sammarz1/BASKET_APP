@@ -1,0 +1,4 @@
+-r requirements.txt
+# Development & Testing dependencies (e.g. pytest, ruff)
+pytest
+black

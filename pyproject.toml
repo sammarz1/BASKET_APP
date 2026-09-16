@@ -1,0 +1,6 @@
+[project]
+name = "basket-app"
+version = "0.1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["unit-tests", "integration-tests"]
