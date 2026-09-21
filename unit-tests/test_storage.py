@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from basket_app.core.storage import BronzeStorage, _validate_metadata
+from basket_app.core.storage import BronzeStorage
 
 
 @pytest.fixture
@@ -45,14 +45,6 @@ def test_put_raw_json_delegates_to_bytes(storage):
     kwargs = storage.s3.put_object.call_args.kwargs
     assert kwargs["Body"] == '{"b": 2, "a": "é"}'.encode("utf-8")
     assert kwargs["ContentType"] == "application/json"
-
-
-def test_metadata_validation_rejects_non_ascii_and_oversize():
-    with pytest.raises(ValueError):
-        _validate_metadata({"k": "é"})
-    with pytest.raises(ValueError):
-        _validate_metadata({"k": "x" * 3000})
-    _validate_metadata({"k": "fine"})
 
 
 def test_ensure_bucket_sets_location_constraint_outside_us_east_1():

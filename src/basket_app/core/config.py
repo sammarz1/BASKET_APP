@@ -1,4 +1,4 @@
-"""Configuration management for storage, HTTP and application settings."""
+"""Application settings, loaded from the environment and the repo-root .env file."""
 
 from functools import lru_cache
 from pathlib import Path
@@ -12,11 +12,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = PROJECT_ROOT / ".env"
 
 
-class StorageSettings(BaseSettings):
+class Settings(BaseSettings):
     """
-    Object storage configuration.
-
-    Supports MinIO for local development and AWS S3 in production.
+    Object storage (MinIO locally, AWS S3 in production) and HTTP settings.
     """
 
     s3_endpoint_url: Optional[str] = Field(
@@ -43,6 +41,10 @@ class StorageSettings(BaseSettings):
         default=False,
         description="Whether to use SSL (True for HTTPS in AWS, False for local MinIO).",
     )
+    http_min_interval_seconds: float = Field(
+        default=1.0,
+        description="Minimum delay between consecutive HTTP requests (rate limiting).",
+    )
 
     @field_validator("s3_endpoint_url", mode="before")
     @classmethod
@@ -59,46 +61,6 @@ class StorageSettings(BaseSettings):
     )
 
 
-class HttpSettings(BaseSettings):
-    """HTTP client configuration shared by all extractors."""
-
-    http_timeout_seconds: float = Field(
-        default=30.0,
-        description="Per-request timeout (connect + read).",
-    )
-    http_max_retries: int = Field(
-        default=5,
-        description="Retries on connection errors, 429 and 5xx responses.",
-    )
-    http_backoff_factor: float = Field(
-        default=1.0,
-        description="Exponential backoff base in seconds between retries.",
-    )
-    http_min_interval_seconds: float = Field(
-        default=1.0,
-        description="Minimum delay between consecutive requests (rate limiting).",
-    )
-    http_user_agent: Optional[str] = Field(
-        default=None,
-        description=(
-            "User-Agent header override. Leave unset to use the requests default: "
-            "some WAFs (e.g. ESPN) reject spoofed browser UAs without matching TLS "
-            "fingerprints. Sources that need browser headers set them per extractor."
-        ),
-    )
-
-    model_config = SettingsConfigDict(
-        env_file=ENV_FILE,
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-
 @lru_cache
-def get_settings() -> StorageSettings:
-    return StorageSettings()
-
-
-@lru_cache
-def get_http_settings() -> HttpSettings:
-    return HttpSettings()
+def get_settings() -> Settings:
+    return Settings()

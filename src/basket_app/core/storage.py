@@ -3,16 +3,13 @@
 import gzip
 import json
 from datetime import datetime, timezone
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from basket_app.core.config import get_settings
-
-# S3 user metadata is limited to 2 KB total and must be ASCII; keep values terse.
-_S3_METADATA_MAX_BYTES = 2048
 
 
 class BronzeStorage:
@@ -76,14 +73,13 @@ class BronzeStorage:
         :param key: S3 object key (e.g. 'nba/schedule/season=2024-25/schedule.json')
         :param body: Raw payload bytes
         :param content_type: MIME type of the *uncompressed* payload
-        :param metadata: Optional key-value provenance metadata (S3 user metadata)
+        :param metadata: Optional provenance metadata (S3 user metadata: ASCII, 2 KB max)
         :param compress: Whether to gzip the payload; appends '.gz' to the key
         :return: S3 URI of the written object (s3://bucket/key)
         """
         s3_meta = {"ingested_at": datetime.now(timezone.utc).isoformat()}
         if metadata:
             s3_meta.update({str(k): str(v) for k, v in metadata.items()})
-        _validate_metadata(s3_meta)
 
         target_key = key
         put_kwargs: dict[str, Any] = {
@@ -137,11 +133,6 @@ class BronzeStorage:
         """Retrieve and deserialize a JSON object, decompressing if gzipped."""
         return json.loads(self.get_raw_bytes(key).decode("utf-8"))
 
-    def get_metadata(self, key: str) -> dict[str, str]:
-        """Return the S3 user metadata stored alongside an object."""
-        response = self.s3.head_object(Bucket=self.bucket_name, Key=key)
-        return response.get("Metadata", {})
-
     def object_exists(self, key: str) -> bool:
         """Check whether an object key exists in the bucket."""
         try:
@@ -153,34 +144,17 @@ class BronzeStorage:
                 return False
             raise
 
-    def iter_keys(self, prefix: str = "") -> Iterator[str]:
-        """Lazily yield all object keys under a given prefix."""
-        paginator = self.s3.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
-            for item in page.get("Contents", []):
-                yield item["Key"]
-
     def list_keys(self, prefix: str = "") -> list[str]:
-        """List all object keys under a given prefix (materialized)."""
-        return list(self.iter_keys(prefix))
+        """List all object keys under a given prefix."""
+        paginator = self.s3.get_paginator("list_objects_v2")
+        keys: list[str] = []
+        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
+            keys.extend(item["Key"] for item in page.get("Contents", []))
+        return keys
 
     def delete_object(self, key: str) -> None:
         """Delete an object from the bucket."""
         self.s3.delete_object(Bucket=self.bucket_name, Key=key)
-
-
-def _validate_metadata(meta: dict[str, str]) -> None:
-    total = sum(
-        len(k.encode("utf-8")) + len(v.encode("utf-8")) for k, v in meta.items()
-    )
-    if total > _S3_METADATA_MAX_BYTES:
-        raise ValueError(
-            f"S3 user metadata is {total} bytes; limit is {_S3_METADATA_MAX_BYTES}. "
-            "Keep provenance metadata terse."
-        )
-    for k, v in meta.items():
-        if not (k.isascii() and v.isascii()):
-            raise ValueError(f"S3 user metadata must be ASCII: {k!r}={v!r}")
 
 
 def get_bronze_storage() -> BronzeStorage:
