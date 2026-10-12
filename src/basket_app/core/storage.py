@@ -144,13 +144,24 @@ class BronzeStorage:
                 return False
             raise
 
+    def list_objects(self, prefix: str = "") -> list[dict[str, Any]]:
+        """List all objects under a given prefix with metadata (key, size, last_modified)."""
+        paginator = self.s3.get_paginator("list_objects_v2")
+        items: list[dict[str, Any]] = []
+        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
+            for item in page.get("Contents", []):
+                items.append(
+                    {
+                        "key": item["Key"],
+                        "size": item.get("Size", 0),
+                        "last_modified": item.get("LastModified"),
+                    }
+                )
+        return items
+
     def list_keys(self, prefix: str = "") -> list[str]:
         """List all object keys under a given prefix."""
-        paginator = self.s3.get_paginator("list_objects_v2")
-        keys: list[str] = []
-        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
-            keys.extend(item["Key"] for item in page.get("Contents", []))
-        return keys
+        return [obj["key"] for obj in self.list_objects(prefix)]
 
     def delete_object(self, key: str) -> None:
         """Delete an object from the bucket."""
