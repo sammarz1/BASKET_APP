@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 import logging
 from typing import Optional
 
+from basket_app.core.http import HttpClient
 from basket_app.core.storage import BronzeStorage, get_bronze_storage
 from basket_app.extract.registry import get_extractor_class
 
@@ -44,8 +45,13 @@ class DailySummary:
 class DailyRunner:
     """Orchestrates daily operational catch-up ingestion for active seasons."""
 
-    def __init__(self, storage: Optional[BronzeStorage] = None):
+    def __init__(
+        self,
+        storage: Optional[BronzeStorage] = None,
+        client: Optional[HttpClient] = None,
+    ):
         self.storage = storage or get_bronze_storage()
+        self.client = client or HttpClient()
 
     def run(
         self,
@@ -235,6 +241,7 @@ class DailyRunner:
             extractor = extractor_cls(
                 season=season,
                 storage=self.storage,
+                client=self.client,
                 overwrite=overwrite,
                 start=start,
                 end=end,

@@ -1,15 +1,42 @@
-"""Application settings, loaded from the environment and the repo-root .env file."""
+"""Application settings, loaded from the environment, config.json, and the repo-root .env file."""
 
 from functools import lru_cache
+import json
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
-# Anchor the .env file to the repo root so settings resolve regardless of cwd.
+# Anchor paths to the repo root so settings resolve regardless of cwd.
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = PROJECT_ROOT / ".env"
+CONFIG_JSON = PROJECT_ROOT / "config.json"
+
+
+class JsonFileSource(PydanticBaseSettingsSource):
+    """Settings source that loads configuration from config.json if present."""
+
+    def __init__(self, settings_cls: type[BaseSettings], json_file: Path):
+        super().__init__(settings_cls)
+        self.json_file = json_file
+
+    def get_field_value(self, field: Any, field_name: str) -> tuple[Any, str, bool]:
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        if not self.json_file.exists() or self.json_file.stat().st_size == 0:
+            return {}
+        try:
+            with open(self.json_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
 
 
 class Settings(BaseSettings):
@@ -59,6 +86,30 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            JsonFileSource(settings_cls, json_file=CONFIG_JSON),
+            dotenv_settings,
+        )
+
+    def save_to_json(self, path: Optional[Path] = None) -> Path:
+        """Serialize current settings to config.json with indentation."""
+        target = path or CONFIG_JSON
+        with open(target, "w", encoding="utf-8") as f:
+            json.dump(self.model_dump(), f, indent=2)
+        get_settings.cache_clear()
+        return target
 
 
 @lru_cache

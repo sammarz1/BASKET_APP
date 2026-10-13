@@ -5,6 +5,7 @@ from datetime import date
 import logging
 from typing import Optional
 
+from basket_app.core.http import HttpClient
 from basket_app.core.storage import BronzeStorage, get_bronze_storage
 from basket_app.extract.base import ExtractSummary
 from basket_app.extract.registry import get_extractor_class
@@ -114,8 +115,13 @@ def default_nba_season_dates(season: str) -> tuple[date, date]:
 class BackfillOrchestrator:
     """Orchestrates multi-season and multi-endpoint data ingestion."""
 
-    def __init__(self, storage: Optional[BronzeStorage] = None):
+    def __init__(
+        self,
+        storage: Optional[BronzeStorage] = None,
+        client: Optional[HttpClient] = None,
+    ):
         self.storage = storage or get_bronze_storage()
+        self.client = client or HttpClient()
 
     def run(
         self,
@@ -157,6 +163,7 @@ class BackfillOrchestrator:
                 extractor = extractor_cls(
                     season=season,
                     storage=self.storage,
+                    client=self.client,
                     overwrite=overwrite,
                     start=season_start,
                     end=season_end,

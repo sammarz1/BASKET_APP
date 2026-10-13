@@ -79,7 +79,11 @@ class BronzeStorage:
         """
         s3_meta = {"ingested_at": datetime.now(timezone.utc).isoformat()}
         if metadata:
-            s3_meta.update({str(k): str(v) for k, v in metadata.items()})
+            for k, v in metadata.items():
+                safe_k = str(k).encode("ascii", "ignore").decode("ascii")
+                safe_v = str(v).encode("ascii", "replace").decode("ascii")
+                if safe_k:
+                    s3_meta[safe_k] = safe_v
 
         target_key = key
         put_kwargs: dict[str, Any] = {

@@ -203,6 +203,39 @@ def test_audit_nba_season():
     assert m_summary.status == "PARTIAL"
 
 
+def test_audit_nba_season_with_espn_dict_teams():
+    mock_storage = MagicMock()
+    mock_storage.object_exists.side_effect = lambda k: "teams" in k
+
+    espn_teams = {
+        "sports": [
+            {
+                "leagues": [
+                    {
+                        "teams": [
+                            {"team": {"id": "1", "name": "Hawks"}},
+                            {"team": {"id": "2", "name": "Celtics"}},
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+    mock_storage.get_raw_json.return_value = espn_teams
+    mock_storage.list_keys.return_value = [
+        "nba/roster/season=2024-25/team_id=1/roster.json.gz"
+    ]
+
+    auditor = BronzeAuditor(storage=mock_storage)
+    metrics = auditor.audit_nba_season("2024-25")
+
+    m_roster = next(m for m in metrics if m.endpoint == "roster")
+    assert m_roster.expected_count == 2
+    assert m_roster.found_count == 1
+    assert m_roster.missing_ids == ["2"]
+
+
 def test_audit_report_formatting():
     report = AuditReport(
         generated_at="2026-10-12 10:00:00 UTC",

@@ -66,11 +66,32 @@ class NbaGameSummaryExtractor(BaseExtractor):
                         ESPN_SCOREBOARD_URL,
                         params={"dates": day.strftime("%Y%m%d"), "limit": 100},
                     )
+                    self.storage.put_raw_bytes(
+                        key=f"nba/espn_scoreboard/season={self.season}/date={day.isoformat()}/scoreboard.json",
+                        body=res.content,
+                        content_type="application/json",
+                        metadata={
+                            "league": "nba",
+                            "endpoint": "espn_scoreboard",
+                            "season": self.season,
+                            "date": day.isoformat(),
+                        },
+                        compress=True,
+                    )
                     data = json.loads(res.content.decode("utf-8"))
 
                 for event in data.get("events", []):
                     event_id = str(event.get("id", ""))
-                    if event_id and event_id not in ids:
+                    if not event_id:
+                        continue
+                    status_info = event.get("status", {}).get("type", {})
+                    # Only ingest completed games into Bronze summaries
+                    is_completed = (
+                        status_info.get("completed", False)
+                        if "status" in event
+                        else True
+                    )
+                    if is_completed and event_id not in ids:
                         ids.append(event_id)
             return ids
 
@@ -82,7 +103,15 @@ class NbaGameSummaryExtractor(BaseExtractor):
                 data = self.storage.get_raw_json(key)
                 for event in data.get("events", []):
                     event_id = str(event.get("id", ""))
-                    if event_id and event_id not in ids:
+                    if not event_id:
+                        continue
+                    status_info = event.get("status", {}).get("type", {})
+                    is_completed = (
+                        status_info.get("completed", False)
+                        if "status" in event
+                        else True
+                    )
+                    if is_completed and event_id not in ids:
                         ids.append(event_id)
 
         return ids

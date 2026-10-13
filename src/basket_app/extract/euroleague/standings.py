@@ -42,10 +42,34 @@ class EuroleagueStandingsExtractor(BaseExtractor):
         return self.season[0].upper()
 
     def discover_latest_round(self) -> int:
-        """Find the maximum regular season round for the season."""
+        """Find the maximum played regular season round for the season."""
         if self.round_number:
             return self.round_number
 
+        # 1. Check games calendar in Bronze storage to find latest played RS round
+        games_key = f"euroleague/games/season={self.season}/games.json.gz"
+        if self.storage.object_exists(games_key):
+            try:
+                raw_games = self.storage.get_raw_json(games_key)
+                g_list = (
+                    raw_games.get("data", [])
+                    if isinstance(raw_games, dict)
+                    else raw_games
+                )
+                played_rs: list[int] = []
+                for g in g_list:
+                    if not g.get("played", False):
+                        continue
+                    pt = g.get("phaseType")
+                    p_code = pt.get("code") if isinstance(pt, dict) else pt
+                    if p_code == "RS" and "round" in g:
+                        played_rs.append(g["round"])
+                if played_rs:
+                    return max(played_rs)
+            except Exception:
+                pass
+
+        # 2. Fallback to querying rounds list from API
         try:
             url = f"{API_BASE}/competitions/{self.competition}/seasons/{self.season}/rounds"
             res = self.client.get(url)

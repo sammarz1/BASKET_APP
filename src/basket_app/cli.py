@@ -20,6 +20,7 @@ from basket_app.backfill import (
     parse_season_range,
     resolve_endpoints,
 )
+from basket_app.core.config import get_settings
 from basket_app.core.storage import get_bronze_storage
 from basket_app.daily import DailyRunner
 from basket_app.extract.registry import (
@@ -175,6 +176,17 @@ def build_parser() -> argparse.ArgumentParser:
     # extractors subcommand (shortcut to list extractors)
     sub.add_parser("extractors", help="List all registered extractors")
 
+    # config subcommand (manage config.json)
+    config_p = sub.add_parser("config", help="View or save settings to config.json")
+    config_p.add_argument(
+        "--save",
+        action="store_true",
+        help="Save current active configuration to config.json",
+    )
+    config_p.add_argument(
+        "--show", action="store_true", help="Display current configuration as JSON"
+    )
+
     return parser
 
 
@@ -198,6 +210,17 @@ def main(argv: list[str] | None = None) -> int:
         print("Available extractors:")
         for item in list_available_extractors():
             print(f"  - {item}")
+        return 0
+
+    if args.command == "config":
+        import json
+
+        settings = get_settings()
+        if args.save:
+            path = settings.save_to_json()
+            print(f"Configuration successfully saved to: {path}")
+        if args.show or not args.save:
+            print(json.dumps(settings.model_dump(), indent=2))
         return 0
 
     if args.command == "list":

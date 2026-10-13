@@ -162,6 +162,35 @@ def test_nba_game_summary_extractor_requests():
     assert req.metadata == {"season": "2024-25", "game_id": "401704698"}
 
 
+def test_nba_game_summary_filters_uncompleted_games():
+    storage = MagicMock()
+    storage.object_exists.return_value = True
+    storage.get_raw_json.return_value = {
+        "events": [
+            {
+                "id": "1001",
+                "name": "LAL @ GSW",
+                "status": {"type": {"completed": True, "state": "post"}},
+            },
+            {
+                "id": "1002",
+                "name": "BOS @ MIA",
+                "status": {"type": {"completed": False, "state": "pre"}},
+            },
+        ]
+    }
+
+    extractor = NbaGameSummaryExtractor(
+        "2024-25",
+        storage=storage,
+        start=date(2024, 11, 1),
+        end=date(2024, 11, 1),
+    )
+    requests = list(extractor.iter_requests())
+    assert len(requests) == 1
+    assert requests[0].params == {"event": "1001"}
+
+
 def test_euroleague_clubs_extractor_requests():
     storage = MagicMock()
     extractor = EuroleagueClubsExtractor("E2024", storage=storage)
@@ -226,6 +255,23 @@ def test_euroleague_standings_extractor_requests():
         == "https://api-live.euroleague.net/v2/competitions/E/seasons/E2024/rounds/34/standings"
     )
     assert requests[0].key == "euroleague/standings/season=E2024/standings.json"
+
+
+def test_euroleague_standings_auto_discovers_played_round():
+    storage = MagicMock()
+    storage.object_exists.return_value = True
+    storage.get_raw_json.return_value = {
+        "data": [
+            {"round": 10, "played": True, "phaseType": {"code": "RS"}},
+            {"round": 11, "played": True, "phaseType": {"code": "RS"}},
+            {"round": 12, "played": False, "phaseType": {"code": "RS"}},
+        ]
+    }
+
+    extractor = EuroleagueStandingsExtractor("E2024", storage=storage)
+    requests = list(extractor.iter_requests())
+    assert len(requests) == 1
+    assert "rounds/11/standings" in requests[0].url
 
 
 def test_euroleague_people_extractor_requests():

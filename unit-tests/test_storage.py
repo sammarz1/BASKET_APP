@@ -57,3 +57,15 @@ def test_ensure_bucket_sets_location_constraint_outside_us_east_1():
     s.s3.create_bucket.assert_called_once_with(
         Bucket="b", CreateBucketConfiguration={"LocationConstraint": "eu-west-1"}
     )
+
+
+def test_put_raw_bytes_sanitizes_metadata_ascii(storage):
+    storage.put_raw_bytes(
+        "nba/meta_test.json",
+        b"data",
+        metadata={"non_ascii": "café", "tag": "test"},
+    )
+    kwargs = storage.s3.put_object.call_args.kwargs
+    # "café" should be sanitized to ASCII-safe representation
+    assert kwargs["Metadata"]["non_ascii"] == "caf?"
+    assert kwargs["Metadata"]["tag"] == "test"

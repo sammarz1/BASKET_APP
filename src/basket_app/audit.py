@@ -3,7 +3,7 @@
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from basket_app.core.storage import BronzeStorage, get_bronze_storage
@@ -399,9 +399,17 @@ class BronzeAuditor:
         if has_teams:
             try:
                 teams_data = self.storage.get_raw_json(teams_key)
-                expected_team_ids = [
-                    str(t.get("id")) for t in teams_data if t.get("id")
-                ]
+                if isinstance(teams_data, dict):
+                    for sport in teams_data.get("sports", []):
+                        for lg in sport.get("leagues", []):
+                            for item in lg.get("teams", []):
+                                tid = str(item.get("team", {}).get("id", ""))
+                                if tid and tid not in expected_team_ids:
+                                    expected_team_ids.append(tid)
+                elif isinstance(teams_data, list):
+                    expected_team_ids = [
+                        str(t.get("id")) for t in teams_data if t.get("id")
+                    ]
             except Exception:
                 expected_team_ids = []
 
@@ -579,7 +587,7 @@ class BronzeAuditor:
                 coverage.extend(self.audit_nba_season(s_code))
 
         return AuditReport(
-            generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
             inventory=inventory,
             coverage=coverage,
             total_files=total_files,

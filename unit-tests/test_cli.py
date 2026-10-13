@@ -90,3 +90,11 @@ def test_main_audit(capsys):
     mock_auditor.run_audit.assert_called_once_with(league="nba", season=None)
     captured = capsys.readouterr()
     assert "AUDIT OUTPUT TEXT" in captured.out
+
+
+def test_main_config(capsys):
+    ret = main(["config", "--show"])
+    assert ret == 0
+    captured = capsys.readouterr()
+    assert "s3_bucket_name" in captured.out
+    assert "bronze" in captured.out
