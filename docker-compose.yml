@@ -1,6 +1,6 @@
 services:
   minio:
-    image: quay.io/minio/minio:latest
+    image: pgsty/minio:latest
     container_name: basket_minio
     restart: unless-stopped
     ports:
@@ -14,7 +14,7 @@ services:
     command: server /data --console-address ":9001"
 
   createbuckets:
-    image: quay.io/minio/mc:latest
+    image: pgsty/mc:latest
     container_name: basket_minio_init
     depends_on:
       - minio
