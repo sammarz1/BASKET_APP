@@ -3,8 +3,6 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-import pytest
-
 from basket_app.audit import (
     AuditReport,
     BronzeAuditor,

@@ -1,5 +1,11 @@
 # Basket App 🏀
 
+[![CI](https://github.com/sammarz1/BASKET_APP/actions/workflows/ci.yml/badge.svg)](https://github.com/sammarz1/BASKET_APP/actions/workflows/ci.yml)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/sammarz1/BASKET_APP/pkgs/container/basket-app)
+[![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Architecture: Medallion](https://img.shields.io/badge/architecture-medallion%20lakehouse-orange.svg)](#architecture-overview)
+
 A production-grade basketball analytics data platform and ETL pipeline ingesting **all available historical and operational data** for the **NBA** and **EuroLeague**.
 
 Built on a **Medallion Lakehouse Architecture** (Bronze $\rightarrow$ Silver $\rightarrow$ Gold) with immutable raw data ingestion into S3 / MinIO object storage.
@@ -218,21 +224,43 @@ make integration-tests
 # Run entire test suite
 make test
 
-# Format code with Black
+# Run tests with terminal coverage report
+make test-cov
+
+# Check linting and formatting (Ruff + Black)
+make lint
+
+# Auto-fix linting and format code
 make format
 ```
 
 ---
 
-## 🔄 Continuous Integration (CI/CD)
+## 🔄 CI/CD & Delivery Workflows
 
-The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every pull request and push to `main`:
-1. Spawns an isolated MinIO service container with health checks.
-2. Installs Python dependencies and the editable package.
-3. Checks code formatting via `black --check`.
-4. Executes all 70+ unit and integration tests against the live MinIO container.
+The repository uses native, zero-cost GitHub Actions workflows:
 
----
+| Workflow | Trigger | Description |
+| :--- | :--- | :--- |
+| **`CI`** (`ci.yml`) | Pull Request & Push (`main`) | Lints code (Ruff + Black), matrix tests (Python 3.11 & 3.12) against live MinIO service container, posts Markdown coverage summaries to Job Summaries, and validates CLI audit. Cancel-in-progress enabled. |
+| **`CD - Container`** (`docker.yml`) | Push (`main`), Tags (`v*`), PRs | Validates multi-platform Docker container build (`linux/amd64`, `linux/arm64`) with GitHub Actions layer caching. Automatically publishes images to **GitHub Container Registry (GHCR)** on merges to `main` and semver releases. |
+| **`DataOps Ingestion`** (`scheduled-ingestion.yml`) | Cron (`06:00 UTC`), `workflow_dispatch` | Scheduled daily ETL runner executing `basket-app daily` and publishing Bronze audit logs to the workflow summary. |
+
+### Running via Docker
+
+You can pull and run the published container directly from GHCR:
+
+```bash
+# Pull the latest image
+docker run --rm ghcr.io/sammarz1/basket_app:latest --help
+
+# Run daily catch-up ingestion with MinIO/S3 credentials
+docker run --rm \
+  -e S3_ENDPOINT_URL=http://minio:9000 \
+  -e S3_ACCESS_KEY_ID=minioadmin \
+  -e S3_SECRET_ACCESS_KEY=minioadmin \
+  ghcr.io/sammarz1/basket_app:latest daily --days-back 1
+```
 
 ## 🧩 Adding New Endpoints
 
