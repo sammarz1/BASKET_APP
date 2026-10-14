@@ -22,3 +22,22 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["unit-tests", "integration-tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E501",  # line length handled by black
+    "E741",  # single-letter loop variables
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/basket_app"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

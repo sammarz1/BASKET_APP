@@ -1,7 +1,5 @@
 """Extractor registry mapping (league, endpoint) to extractor classes."""
 
-from typing import Type
-
 from basket_app.extract.base import BaseExtractor
 from basket_app.extract.euroleague.boxscore import EuroleagueBoxscoreExtractor
 from basket_app.extract.euroleague.clubs import EuroleagueClubsExtractor

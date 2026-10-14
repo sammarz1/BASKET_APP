@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Code Formatting & Linting
@@ -23,7 +27,11 @@ jobs:
       - name: Install Linting Tools
         run: |
           python -m pip install --upgrade pip
-          pip install black
+          pip install black ruff
+
+      - name: Run Ruff Linter
+        run: |
+          ruff check .
 
       - name: Check Code Formatting
         run: |
@@ -77,9 +85,15 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
 
-      - name: Run Test Suite (Unit & Integration)
+      - name: Run Test Suite with Coverage
         run: |
-          pytest -v
+          pytest -v --cov=basket_app --cov-report=term-missing
+
+      - name: Publish Coverage Report to Job Summary
+        if: always()
+        run: |
+          echo "### 📊 Test Coverage Summary (Python ${{ matrix.python-version }})" >> $GITHUB_STEP_SUMMARY
+          coverage report --format=markdown >> $GITHUB_STEP_SUMMARY || true
 
       - name: Verify CLI Audit Tool
         run: |

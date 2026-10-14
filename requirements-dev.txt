@@ -1,4 +1,6 @@
 -r requirements.txt
 # Development & Testing dependencies (e.g. pytest, ruff)
 pytest
+pytest-cov
 black
+ruff
