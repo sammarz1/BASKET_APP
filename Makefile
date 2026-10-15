@@ -1,4 +1,4 @@
-.PHONY: unit-tests integration-tests test test-cov lint format up down logs audit daily
+.PHONY: unit-tests integration-tests test test-cov lint format up down logs audit daily backfill-history
 
 up:
 	docker compose up -d
@@ -34,3 +34,7 @@ audit:
 
 daily:
 	.venv/bin/basket-app daily
+
+backfill-history:
+	./scripts/backfill_history.sh
+
